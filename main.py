@@ -32,13 +32,10 @@ def closed_fingers(point):
     
     return closed
         
-def recognize_hand(p0, p1, g0, g1):
-    if g0 == g1:
-        return False
-    # print(g0, g1, p0, p1)
-    low_d = 0.5
+def input_keyboard(p0, p1, g0, g1):
     x_dif = p1.x - p0.x
     y_dif = p1.y - p0.y
+
     if g1 == "0":
         if g0 == "1":
             if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
@@ -47,6 +44,8 @@ def recognize_hand(p0, p1, g0, g1):
                 kb.send(" ")
             elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                 kb.send("?")
+            elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                return "selection"
         elif g0 == "2":
             if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                 kb.send("a")
@@ -115,20 +114,59 @@ def recognize_hand(p0, p1, g0, g1):
             elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                 print()
 
-    return True
+    return "keyboard & mouse"
+
+def get_gesture(landmarks):
+    closed = closed_fingers(landmarks)
+    gesture = ''
+    if closed == [0, 2, 3, 4]: # gesture "1"
+        cv2.putText(frame, text='1', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "1"
+    elif closed == [0, 3, 4]: # gesture "2"
+        cv2.putText(frame, text='2', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "2"
+    elif closed == [0, 4]: # gesture "3"
+        cv2.putText(frame, text='3', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "3"
+    elif closed == [0]: # gesture "4"
+        cv2.putText(frame, text='4', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "4"
+    elif closed == []: # gesture "5"
+        cv2.putText(frame, text='5', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "5"
+    elif closed == [1, 2, 3]: # gesture "6"
+        cv2.putText(frame, text='6', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "6"
+    elif closed == [2, 3, 4]: # gesture "7"
+        cv2.putText(frame, text='7', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "7"
+    elif closed == [3, 4]: # gesture "8"
+        cv2.putText(frame, text='8', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "8"
+    elif closed == [4]: # gesture "9"
+        cv2.putText(frame, text='9', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "9"
+    elif closed == [0, 1, 2, 3, 4]: # gesture "0"
+        cv2.putText(frame, text='0', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "0"
+    elif closed == [1]: # gesture "Okay"
+        cv2.putText(frame, text='Okay', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
+        gesture = "okay"
+
+    return gesture
         
 cap = cv2.VideoCapture(0)
 last_pos = None # record position of hand in last run
 last_gesture = None
 cam_width = cap.get(3) # width
 cam_height = cap.get(4) # height
+mode = 'selection'
 
 while cap.isOpened():
     success, frame = cap.read()
 
     # miror the frame 
     frame = cv2.flip(frame, 1)
-
     results = hands.process(frame)
     
     if results.multi_hand_landmarks:
@@ -137,63 +175,35 @@ while cap.isOpened():
             mp_drawing.draw_landmarks( frame, landmarks, mp_hands.HAND_CONNECTIONS)
         
             hand_pos = landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-            closed = closed_fingers(landmarks.landmark)
+            gesture = get_gesture(landmarks.landmark)
             
-            if handedness == "Right":
-                gesture = None
-                
-                if closed == [0, 2, 3, 4]: # gesture "1"
-                    cv2.putText(frame, text='1', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "1"
-                elif closed == [0, 3, 4]: # gesture "2"
-                    cv2.putText(frame, text='2', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "2"
-                elif closed == [0, 4]: # gesture "3"
-                    cv2.putText(frame, text='3', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "3"
-                elif closed == [0]: # gesture "4"
-                    cv2.putText(frame, text='4', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "4"
-                elif closed == []: # gesture "5"
-                    cv2.putText(frame, text='5', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "5"
-                elif closed == [1, 2, 3]: # gesture "6"
-                    cv2.putText(frame, text='6', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "6"
-                elif closed == [2, 3, 4]: # gesture "7"
-                    cv2.putText(frame, text='7', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "7"
-                elif closed == [3, 4]: # gesture "8"
-                    cv2.putText(frame, text='8', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "8"
-                elif closed == [4]: # gesture "9"
-                    cv2.putText(frame, text='9', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "9"
-                elif closed == [0, 1, 2, 3, 4]: # gesture "0"
-                    cv2.putText(frame, text='0', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "0"
-                elif closed == [1]: # gesture "Okay"
-                    cv2.putText(frame, text='Okay', org=(300, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, color=(0, 0, 0), fontScale=2, lineType=cv2.LINE_AA)
-                    gesture = "okay"
-
-                record = True
-                if last_pos and hand_pos and last_gesture and gesture:
-                    record = recognize_hand(last_pos, hand_pos, last_gesture, gesture)
-                if record:
+            if mode == 'keyboard & mouse':
+                if handedness == "Right":
+                    if last_pos and hand_pos and last_gesture and gesture and last_gesture != gesture:
+                        mode = input_keyboard(last_pos, hand_pos, last_gesture, gesture)
+                        
                     last_gesture = gesture
                     last_pos = hand_pos
+                
+                elif handedness == "Left": 
+                    cursor_x = int(hand_pos.x * screen_width)
+                    cursor_y = int(hand_pos.y * screen_height)
+
+                    pyautogui.moveTo(cursor_x, cursor_y, duration=0.1)
+
+                    # current_dist = index_tip.y - index_mid.y
+                    closed = closed_fingers(landmarks.landmark)
+                    if 1 in closed:
+                        pyautogui.click()
             
-            elif handedness == "Left":
-                cursor_x = int(hand_pos.x * screen_width)
-                cursor_y = int(hand_pos.y * screen_height)
-
-                pyautogui.moveTo(cursor_x, cursor_y, duration=0.1)
-
-                # current_dist = index_tip.y - index_mid.y
-                closed = closed_fingers(landmarks.landmark)
-                if 1 in closed:
-                    pyautogui.click()
-
+            elif mode == 'selection':
+                if gesture == '0':
+                    if last_gesture == '2':
+                        mode = 'keyboard & mouse'
+                    elif last_gesture == '3':
+                        mode = 'PPT'
+                last_gesture = gesture
+                print(mode, gesture)
                 
     
     cv2.imshow('Gesture Recognition', frame)
