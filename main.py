@@ -4,11 +4,16 @@ import numpy as np
 import math
 import keyboard as kb
 import pyautogui
+import datetime
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands()
 mp_drawing = mp.solutions.drawing_utils
 screen_width, screen_height = pyautogui.size()
+prev_time = datetime.datetime.now()
+cur_time = prev_time
+min_time_diff = 0.3
+mouse_move = False
 
 # function to calculate angle of 2 vectors
 def angle_of_vec(v1, v2):
@@ -18,7 +23,8 @@ def angle_of_vec(v1, v2):
         angle = 180
     return angle
 
-def closed_fingers(point):
+# return closed fingers in a list
+def closed_fingers(point): 
     angles = []
     for i in range(1, 18, 4):
         v1 = [point[0].x - point[i+1].x, point[0].y - point[i+1].y]
@@ -32,18 +38,19 @@ def closed_fingers(point):
     
     return closed
         
-def input_keyboard(p0, p1, g0, g1):
-    x_dif = p1.x - p0.x
-    y_dif = p1.y - p0.y
+# function to decide what to do in keyboard mode
+def input_keyboard(p0, p1, g0, g1): 
+    x_dif = (p1.x - p0.x) * cam_width
+    y_dif = (p1.y - p0.y) * cam_height
 
     if g1 == "0":
         if g0 == "1":
             if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                kb.send("!")
+                kb.send("shift+1")
             elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
                 kb.send(" ")
             elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                kb.send("?")
+                kb.send("shift+/")
             elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
                 return "selection"
         elif g0 == "2":
@@ -116,6 +123,91 @@ def input_keyboard(p0, p1, g0, g1):
 
     return "keyboard & mouse"
 
+def ppt_control(p0, p1, g0, g1): # 
+    x_dif = (p1.x - p0.x) * cam_width
+    y_dif = (p1.y - p0.y) * cam_height
+    print(g0, g1, x_dif, y_dif)
+    if g1 == "0":
+        if g0 == "1":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                print()
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+            elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                return "selection"
+        elif g0 == "2":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                kb.send("ctrl + L") # start using laser pen
+                print("laser pen")
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+            elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                kb.send("ctrl + H") # hide mouse pointer
+                print("hide mouse")
+        elif g0 == "3":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                kb.send("ctrl + P") # start using pen
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                kb.send("ctrl + E")
+        elif g0 == "4":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                print()
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+        elif g0 == "5":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                kb.send("P") # previos slide
+            elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
+                kb.send("esc") # end PPT
+                print("stop PPT")
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                kb.send("N") # next slide
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
+                kb.send("shift + f5") # play PPT
+                print("play PPT")
+        elif g0 == "6":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                print()
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+        elif g0 == "7":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                print()
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+            elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                print()
+        elif g0 == "8":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                print()
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+        elif g0 == "9":
+            if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
+                print()
+            elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                print()
+            elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                print()
+            elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                print()
+
+    return "PPT"
+
 def get_gesture(landmarks):
     closed = closed_fingers(landmarks)
     gesture = ''
@@ -156,11 +248,14 @@ def get_gesture(landmarks):
     return gesture
         
 cap = cv2.VideoCapture(0)
+hand_pos = None
 last_pos = None # record position of hand in last run
 last_gesture = None
+temp_gesture = None
 cam_width = cap.get(3) # width
 cam_height = cap.get(4) # height
 mode = 'selection'
+gesture = ''
 
 while cap.isOpened():
     success, frame = cap.read()
@@ -175,17 +270,24 @@ while cap.isOpened():
             mp_drawing.draw_landmarks( frame, landmarks, mp_hands.HAND_CONNECTIONS)
         
             hand_pos = landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-            gesture = get_gesture(landmarks.landmark)
-            
+
+            cur_gesture = get_gesture(landmarks.landmark)
+            cur_time = datetime.datetime.now()
+            diff_time = cur_time - prev_time
+
+            if diff_time.total_seconds() >= min_time_diff and cur_gesture == temp_gesture:
+                gesture = cur_gesture
+                prev_time = cur_time
+            elif temp_gesture != cur_gesture:
+                prev_time = cur_time
+                last_pos = hand_pos
+            temp_gesture = cur_gesture
+                                
             if mode == 'keyboard & mouse':
                 if handedness == "Right":
                     if last_pos and hand_pos and last_gesture and gesture and last_gesture != gesture:
                         mode = input_keyboard(last_pos, hand_pos, last_gesture, gesture)
-                        
-                    last_gesture = gesture
-                    last_pos = hand_pos
-                
-                elif handedness == "Left": 
+                elif handedness == "Left" and mouse_move: 
                     cursor_x = int(hand_pos.x * screen_width)
                     cursor_y = int(hand_pos.y * screen_height)
 
@@ -195,17 +297,26 @@ while cap.isOpened():
                     closed = closed_fingers(landmarks.landmark)
                     if 1 in closed:
                         pyautogui.click()
-            
             elif mode == 'selection':
                 if gesture == '0':
                     if last_gesture == '2':
                         mode = 'keyboard & mouse'
                     elif last_gesture == '3':
                         mode = 'PPT'
-                last_gesture = gesture
-                print(mode, gesture)
-                
-    
+            elif mode == 'PPT':
+                if handedness == "Right":
+                    if last_pos and hand_pos and last_gesture and gesture and last_gesture != gesture:
+                        mode = ppt_control(last_pos, hand_pos, last_gesture, gesture)
+                elif handedness == "Left" and mouse_move: 
+                    cursor_x = int(hand_pos.x * screen_width)
+                    cursor_y = int(hand_pos.y * screen_height)
+
+                    pyautogui.moveTo(cursor_x, cursor_y, duration=0.1)
+
+            # if last_gesture != gesture:
+            #     print(mode, last_gesture, gesture, hand_pos.x - last_pos.x, hand_pos.y - last_pos.y)    
+            last_gesture = gesture
+
     cv2.imshow('Gesture Recognition', frame)
     
     if cv2.waitKey(5) & 0xFF == ord('q'):
