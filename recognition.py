@@ -17,122 +17,130 @@ class Gesture:
         # self.prev_time = datetime.datetime.now()
         # self.cur_time = self.prev_time
         self.min_time_diff = 0.3
-        self.mouse_acc = False
+        self.mouse_acc = True
+        self.running = False
 
         self.cap = cv2.VideoCapture(0)
         self.cam_width = self.cap.get(3)
         self.cam_height = self.cap.get(4)
-        self.cap.release()
-        self.running = False
+        self.cap.release() 
         self.current_mode = "Selection"
-        self.cur_pos = None
+        self.pos = None
+        self.prev_time = datetime.datetime.now()
         self.last_pos = None
-        self.cur_gesture = None
+        self.gesture = '0'
+        self.last_gesture = '0'
+        self.temp_gesture = None
+        self.det_gesture = None
+        self.test = '0'
         
         self.draw_landmark = True
         self.show_camera = True
-    
-    def is_running(self):
-        return self.running
-    
+
     def start_camera(self, video_label):
-        video_label.config(bg="white")
-        if self.running:
-            return "running"
+        if self.running: 
+            print("running")
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
-            return "unable"
-        
+            print("unable")
+
         self.running = True
         threading.Thread(target=self.process_vidoe, args=(video_label, ), daemon=True).start() 
 
-    def stop_camera(self):
+    def stop_camera(self, frm):
         self.running = False
+        frm.config(fg='white')
         if self.cap:
             self.cap.release()
-            self.cap = None
-        return 
+        return
         
     def process_vidoe(self, video_label):
+        self.prev_time = datetime.datetime.now()
         while self.running:
             success, frm = self.cap.read()
             if not success:
-                messagebox.showerror("Error", "Failed to get caemra frame!")
+                print("Faile to get camera")
+                messagebox.showerror("Error", "Failed to get camera frame!")
                 break
             
-            frm = cv2.cvtColor(cv2.flip(frm, 1), cv2.COLOR_BGR2RGB)
-            results = self.hands.process(frm)
-            prev_time = datetime.datetime.now()
-            temp_gesture = ''
-            gesture = ''
-            last_gesture = ''
-            last_pos = None
+            frm = cv2.flip(frm, 1)
+            rgb_frm = cv2.cvtColor(frm, cv2.COLOR_BGR2RGB)
+            results = self.hands.process(rgb_frm)
+            det_pos = None
             
             if results.multi_hand_landmarks:
                 for landmarks in results.multi_hand_landmarks:
                     handedness = results.multi_handedness[results.multi_hand_landmarks.index(landmarks)].classification[0].label
                     self.mp_drawing.draw_landmarks( frm, landmarks, self.mp_hands.HAND_CONNECTIONS)
                 
-                    hand_pos = landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
+                    self.temp_gesture = self.det_gesture
+                    temp_pos = det_pos
+                    det_pos = landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
 
-                    cur_gesture = self.get_gesture(landmarks.landmark)
+                    self.det_gesture = self.get_gesture(landmarks.landmark)
                     cur_time = datetime.datetime.now()
-                    diff_time = cur_time - prev_time
+                    diff_time = (cur_time - self.prev_time).total_seconds()
+                    
+                    if self.gesture != self.test:
+                        print("gesture: ", self.gesture, "\nlast gesture: ", self.last_gesture, "\ncurrent mode: ", self.current_mode)
+                        self.test = self.gesture
+                        # print("detected gesture: ", self.det_gesture, "\ntemp gesture: ", self.temp_gesture, "\ndif_time: ", diff_time)
 
-                    if diff_time.total_seconds() >= self.min_time_diff and cur_gesture == temp_gesture:
-                        gesture = cur_gesture
-                        prev_time = cur_time
-                    elif temp_gesture != cur_gesture:
-                        prev_time = cur_time
-                        last_pos = hand_pos
-                    temp_gesture = cur_gesture
-                                        
-                    if self.current_mode == 'Keyboard':
-                        if last_pos and hand_pos and last_gesture and gesture and last_gesture != gesture:
-                            self.current_mode = self.keyboard_action(last_pos, hand_pos, last_gesture, gesture)
+                    # 偵測手勢與暫定手勢不相同
+                    if self.det_gesture != self.temp_gesture: 
+                        if diff_time >= self.min_time_diff:
+                            self.last_gesture = self.gesture
+                            self.gesture = self.det_gesture
+                            self.last_pos = self.pos
+                            self.pos = det_pos
+                            
+                        self.temp_gesture = self.det_gesture
+                        self.prev_time = cur_time
+
+                    if not (self.last_pos and det_pos and self.last_gesture and self.gesture ):
+                        continue
+                        
+                    if self.current_mode == 'Keyboard' and self.last_gesture != self.gesture:
+                        self.input_keyboard(self.last_pos, self.pos, self.last_gesture, self.gesture)
                     elif self.current_mode == "Mouse" and self.mouse_acc: 
-                        if gesture == '5':
-                            self.mouse_move(last_pos, hand_pos)
-
-                        # current_dist = index_tip.y - index_mid.y
-                        closed = self.closed_fingers(landmarks.landmark)
-                        if 1 in closed:
-                            pyautogui.click()
+                        if self.gesture == '5':
+                            self.mouse_move(self.temp, det_pos)
+                        elif self.gesture == '0' and self.last_gesture == '1':
+                            self.set_mode("Selection")
+                        elif self.gesture == 'left click':
+                            pyautogui.mouseDown(button="left")
+                        elif self.gesture == 'right click':
+                            pyautogui.mouseDown(button='right')
                     elif self.current_mode == 'Selection':
-                        if gesture == '0':
-                            if last_gesture == '2':
-                                self.update_mode('Keyboard')
-                            elif last_gesture == '3':
-                                self.update_mode('Mouse')
-                            elif last_gesture == '4':
-                                self.update_mode('PPT')
-                            elif last_gesture == '5':
+                        if self.gesture == '0':
+                            if self.last_gesture == '2':
+                                self.set_mode('Keyboard')
+                            elif self.last_gesture == '3':
+                                self.set_mode('Mouse')
+                            elif self.last_gesture == '4':
+                                self.set_mode('PPT')
+                            elif self.last_gesture == '5':
                                 kb.send("win + tab")
-                            elif last_gesture == '7':
+                            elif self.last_gesture == '7':
                                 kb.send("alt + tab")
                     elif self.current_mode == 'PPT':
-                        if handedness == "Right":
-                            if last_pos and hand_pos and last_gesture and gesture and last_gesture != gesture:
-                                self.current_mode = self.ppt_action(last_pos, hand_pos, last_gesture, gesture)
-                        elif handedness == "Left" and self.mouse_acc: 
-                            self.mouse_move(last_pos, hand_pos)
-
-                    if last_gesture != gesture:
-                        print(self.current_mode, last_gesture, gesture, hand_pos.x - last_pos.x, hand_pos.y - last_pos.y)    
-                    last_gesture = gesture
-                    
-                # print(gesture, hand_pos)
-            
+                        self.ppt_control(self.last_pos, self.pos, self.last_gesture, self.gesture)
+                                
             # Convert to Tkinter-compatible format
-            img = cv2.cvtColor(frm, cv2.COLOR_BGR2RGB)
+            img = cv2.cvtColor(frm, cv2.COLOR_RGBA2BGR)
             img = Image.fromarray(img)
             imgtk = ImageTk.PhotoImage(image=img)
 
             # Update video frame
             video_label.configure(image=imgtk)
+            video_label.image = imgtk
 
     def set_mode(self, selected_mode):
         self.current_mode = selected_mode
+        if selected_mode == "Mouse":
+            self.mouse_acc = True
+        else:
+            self.mouse_acc = False
 
     # function to calculate angle of 2 vectors
     def angle_of_vec(self, v1, v2):
@@ -180,8 +188,11 @@ class Gesture:
             gesture = "9"
         elif closed == [0, 1, 2, 3, 4]: # gesture "0"
             gesture = "0"
-        elif closed == [1]: # gesture "Okay"
-            gesture = "okay"
+        elif closed == [1]: 
+            gesture = "left click"
+        elif closed == [2]: 
+            gesture = "right click"
+            
 
         return gesture
 
@@ -199,7 +210,8 @@ class Gesture:
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("capslock")
                 elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
-                    return "selection"
+                    self.set_mode("Selection")
+                    return
             elif g0 == "2":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("a")
@@ -270,9 +282,7 @@ class Gesture:
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
-
-        return "Keyboard"
-
+    
     def ppt_control(self, p0, p1, g0, g1): # 
         x_dif = (p1.x - p0.x) * self.cam_width
         y_dif = (p1.y - p0.y) * self.cam_height
@@ -286,7 +296,7 @@ class Gesture:
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
                 elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
-                    return "selection"
+                    return "Selection"
             elif g0 == "2":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("ctrl + L") # start using laser pen
@@ -360,7 +370,8 @@ class Gesture:
         return "PPT"
 
     def mouse_move(self, p0, p1):
-        x = int(p1.x - p0.x) * self.screen_width 
-        y = int(p1.y - p0.y) * self.screen_width 
+        x = int((p1.x - p0.x) * self.screen_width)
+        y = int((p1.y - p0.y) * self.screen_width) 
+        print("mouse move function is runing.\n(x, y) = ( ", x, ", ", y, ")")
         pyautogui.moveRel(x, y)
         

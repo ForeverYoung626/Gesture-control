@@ -4,7 +4,7 @@ from tkinter import messagebox
 
 from recognition import Gesture
 
-class HandGestureGUI:
+class GUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Hand Gesture Recognition GUI")
@@ -36,7 +36,7 @@ class HandGestureGUI:
         self.start_button = tk.Button(self.button_frame, text="Start Camera", command=lambda: self.ges.start_camera(self.video_label))
         self.start_button.grid(row=0, column=0, padx=5)
 
-        self.stop_button = tk.Button(self.button_frame, text="Stop Camera", command=lambda: self.ges.stop_camera())
+        self.stop_button = tk.Button(self.button_frame, text="Stop Camera", command=lambda: self.ges.stop_camera(self.video_label))
         self.stop_button.grid(row=0, column=1, padx=5)
 
         # Close button
@@ -52,9 +52,9 @@ class HandGestureGUI:
         self.mode_label.config(text=f"Current Mode: {selected_mode}")
 
     def on_close(self):
-        self.ges.stop_camera()
+        self.ges.stop_camera(self.video_label)
         self.root.destroy()
         
 root = tk.Tk()
-app = HandGestureGUI(root)
+app = GUI(root)
 root.mainloop()
