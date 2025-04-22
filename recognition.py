@@ -17,7 +17,7 @@ class Gesture:
         # self.prev_time = datetime.datetime.now()
         # self.cur_time = self.prev_time
         self.min_time_diff = 0.3
-        self.mouse_acc = True
+        self.mouse_acc = False
         self.running = False
 
         self.cap = cv2.VideoCapture(0)
@@ -33,9 +33,18 @@ class Gesture:
         self.temp_gesture = None
         self.det_gesture = None
         self.test = '0'
+        self.sensitivity = 0.3
         
         self.draw_landmark = True
-        self.show_camera = True
+        self.show_camera = False
+        
+        pyautogui.FAILSAFE = False
+        
+    def show_skeleton(self, b):
+        self.draw_landmark = b
+
+    def show_cam(self, b):
+        self.show_camera = b
 
     def start_camera(self, video_label):
         if self.running: 
@@ -47,12 +56,12 @@ class Gesture:
         self.running = True
         threading.Thread(target=self.process_vidoe, args=(video_label, ), daemon=True).start() 
 
-    def stop_camera(self, frm):
+    def stop_camera(self, lbl):
         self.running = False
-        frm.config(fg='white')
         if self.cap:
             self.cap.release()
-        return
+        lbl.configure(image=None)
+        lbl.image = None
         
     def process_vidoe(self, video_label):
         self.prev_time = datetime.datetime.now()
@@ -71,10 +80,12 @@ class Gesture:
             if results.multi_hand_landmarks:
                 for landmarks in results.multi_hand_landmarks:
                     handedness = results.multi_handedness[results.multi_hand_landmarks.index(landmarks)].classification[0].label
-                    self.mp_drawing.draw_landmarks( frm, landmarks, self.mp_hands.HAND_CONNECTIONS)
+                    if self.draw_landmark:
+                        self.mp_drawing.draw_landmarks( frm, landmarks, self.mp_hands.HAND_CONNECTIONS)
                 
                     self.temp_gesture = self.det_gesture
-                    temp_pos = det_pos
+                    if det_pos:
+                        temp_pos = det_pos
                     det_pos = landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
 
                     self.det_gesture = self.get_gesture(landmarks.landmark)
@@ -87,7 +98,7 @@ class Gesture:
                         # print("detected gesture: ", self.det_gesture, "\ntemp gesture: ", self.temp_gesture, "\ndif_time: ", diff_time)
 
                     # 偵測手勢與暫定手勢不相同
-                    if self.det_gesture != self.temp_gesture: 
+                    if self.det_gesture != self.temp_gesture and self.det_gesture != "": 
                         if diff_time >= self.min_time_diff:
                             self.last_gesture = self.gesture
                             self.gesture = self.det_gesture
@@ -97,20 +108,21 @@ class Gesture:
                         self.temp_gesture = self.det_gesture
                         self.prev_time = cur_time
 
-                    if not (self.last_pos and det_pos and self.last_gesture and self.gesture ):
-                        continue
-                        
-                    if self.current_mode == 'Keyboard' and self.last_gesture != self.gesture:
-                        self.input_keyboard(self.last_pos, self.pos, self.last_gesture, self.gesture)
-                    elif self.current_mode == "Mouse" and self.mouse_acc: 
-                        if self.gesture == '5':
-                            self.mouse_move(self.temp, det_pos)
+                    if self.current_mode == "Mouse" or self.mouse_acc: 
+                        if self.gesture == '5' and temp_pos:
+                            print("temp_pos: " ,temp_pos)
+                            if temp_pos:
+                                self.mouse_move(temp_pos, det_pos)
                         elif self.gesture == '0' and self.last_gesture == '1':
                             self.set_mode("Selection")
                         elif self.gesture == 'left click':
                             pyautogui.mouseDown(button="left")
                         elif self.gesture == 'right click':
                             pyautogui.mouseDown(button='right')
+                    if not (self.last_pos and det_pos and self.last_gesture and self.gesture ):
+                        continue  
+                    if self.current_mode == 'Keyboard' and self.last_gesture != self.gesture:
+                        self.input_keyboard(self.last_pos, self.pos, self.last_gesture, self.gesture)
                     elif self.current_mode == 'Selection':
                         if self.gesture == '0':
                             if self.last_gesture == '2':
@@ -132,8 +144,12 @@ class Gesture:
             imgtk = ImageTk.PhotoImage(image=img)
 
             # Update video frame
-            video_label.configure(image=imgtk)
-            video_label.image = imgtk
+            if video_label != None and self.show_camera and self.running:
+                video_label.configure(image=imgtk)
+                video_label.image = imgtk
+            else:
+                video_label.configure(image=None)
+                video_label.image = None
 
     def set_mode(self, selected_mode):
         self.current_mode = selected_mode
@@ -205,80 +221,80 @@ class Gesture:
             if g0 == "1":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("shift")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send(" ")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("capslock")
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
                     self.set_mode("Selection")
                     return
             elif g0 == "2":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("a")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("b")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("c")
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
                     global mouse_acc
                     mouse_acc = not mouse_acc               
             elif g0 == "3":
-                if x_dif > 0 and abs(x_dif) > abs(y_dif): # moving left
+                if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("d")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("e")
-                elif x_dif < 0 and abs(x_dif) > abs(y_dif): # moving right
+                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("f")
             elif g0 == "4":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("g")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("h")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("i")
             elif g0 == "5":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("j")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("k")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("l")
             elif g0 == "6":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("m")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("n")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("o")
             elif g0 == "7":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("p")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("q")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("r")
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
                     kb.send("s")
             elif g0 == "8":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("t")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("u")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("v")
             elif g0 == "9":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("w")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     kb.send("x")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("y")
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
                     kb.send("z")
             elif g0 == "0":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
@@ -286,92 +302,103 @@ class Gesture:
     def ppt_control(self, p0, p1, g0, g1): # 
         x_dif = (p1.x - p0.x) * self.cam_width
         y_dif = (p1.y - p0.y) * self.cam_height
-        print(g0, g1, x_dif, y_dif)
+        # print(g0, g1, x_dif, y_dif)
         if g1 == "0":
             if g0 == "1":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                    kb.send("ctrl + L") # start using laser pen
+                    self.mouse_acc = False
+                    print("laser pen")
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
-                    return "Selection"
+                    kb.send("ctrl + L") # start using laser pen
+                    self.mouse_acc = True
+                    print("laser pen")
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
+                    self.set_mode("Selection")
             elif g0 == "2":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    kb.send("ctrl + L") # start using laser pen
-                    print("laser pen")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
-                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
                     kb.send("ctrl + H") # hide mouse pointer
                     print("hide mouse")
+                    self.mouse_acc = False
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
+                    print()
+                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
+                    kb.send("ctrl + A") # hide mouse pointer
+                    print("show mouse")
+                    self.mouse_acc = True
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
+                    print()
             elif g0 == "3":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("ctrl + P") # start using pen
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                    print("hide pen")
+                    self.mouse_acc = False
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    kb.send("ctrl + E")
-                    print("using eraser")
+                    kb.send("ctrl + P")
+                    print("using pen")
+                    self.mouse_acc = True
             elif g0 == "4":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                    kb.send("esc") # end PPT
+                    print("stop PPT")
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
+                    kb.send("shift + f5") # play PPT
+                    print("play PPT") 
             elif g0 == "5":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("P") # previos slide
                 elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    kb.send("esc") # end PPT
-                    print("stop PPT")
+                    print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("N") # next slide
                 elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
-                    kb.send("shift + f5") # play PPT
-                    print("play PPT")
+                    print()
             elif g0 == "6":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
             elif g0 == "7":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
                     print()
             elif g0 == "8":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
             elif g0 == "9":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving up
+                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
                     print()
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving down
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
                     print()
 
         return "PPT"
 
     def mouse_move(self, p0, p1):
-        x = int((p1.x - p0.x) * self.screen_width)
-        y = int((p1.y - p0.y) * self.screen_width) 
-        print("mouse move function is runing.\n(x, y) = ( ", x, ", ", y, ")")
+        # print(p0, p1)
+        x = int((p1.x - p0.x) * self.screen_width * self.sensitivity)
+        y = int((p1.y - p0.y) * self.screen_height * self.sensitivity) 
+        # print("mouse move function is runing.\n(x, y) = ( ", x, ", ", y, ")")
         pyautogui.moveRel(x, y)
+        # pyautogui.moveTo(x=int(p1.x * self.screen_width), y=int(p1.y * self.screen_height))
         
