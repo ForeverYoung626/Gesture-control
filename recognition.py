@@ -21,8 +21,8 @@ class Gesture:
         self.running = False
 
         self.cap = cv2.VideoCapture(0)
-        self.cam_width = self.cap.get(3)
-        self.cam_height = self.cap.get(4)
+        self.cam_width = 640  # self.cap.get(3)
+        self.cam_height =360 #  self.cap.get(4)
         self.cap.release() 
         self.current_mode = "Selection"
         self.pos = None
@@ -32,8 +32,8 @@ class Gesture:
         self.last_gesture = '0'
         self.temp_gesture = None
         self.det_gesture = None
-        self.test = '0'
-        self.sensitivity = 0.3
+        # self.test = '0'
+        self.sensitivity = 0.7
         
         self.draw_landmark = True
         self.show_camera = False
@@ -65,6 +65,8 @@ class Gesture:
         
     def process_vidoe(self, video_label):
         self.prev_time = datetime.datetime.now()
+        det_pos = None
+        temp_pos = None
         while self.running:
             success, frm = self.cap.read()
             if not success:
@@ -75,42 +77,39 @@ class Gesture:
             frm = cv2.flip(frm, 1)
             rgb_frm = cv2.cvtColor(frm, cv2.COLOR_BGR2RGB)
             results = self.hands.process(rgb_frm)
-            det_pos = None
+
             
             if results.multi_hand_landmarks:
-                for landmarks in results.multi_hand_landmarks:
+                for landmarks in results.multi_hand_landmarks[0:1]:
                     handedness = results.multi_handedness[results.multi_hand_landmarks.index(landmarks)].classification[0].label
                     if self.draw_landmark:
                         self.mp_drawing.draw_landmarks( frm, landmarks, self.mp_hands.HAND_CONNECTIONS)
                 
                     self.temp_gesture = self.det_gesture
-                    if det_pos:
-                        temp_pos = det_pos
                     det_pos = landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
 
                     self.det_gesture = self.get_gesture(landmarks.landmark)
                     cur_time = datetime.datetime.now()
                     diff_time = (cur_time - self.prev_time).total_seconds()
                     
-                    if self.gesture != self.test:
-                        print("gesture: ", self.gesture, "\nlast gesture: ", self.last_gesture, "\ncurrent mode: ", self.current_mode)
-                        self.test = self.gesture
-                        # print("detected gesture: ", self.det_gesture, "\ntemp gesture: ", self.temp_gesture, "\ndif_time: ", diff_time)
 
-                    # 偵測手勢與暫定手勢不相同
-                    if self.det_gesture != self.temp_gesture and self.det_gesture != "": 
+                    # 偵測手勢不爲空
+                    if self.temp_gesture != "": 
                         if diff_time >= self.min_time_diff:
-                            self.last_gesture = self.gesture
-                            self.gesture = self.det_gesture
+                            self.gesture = self.temp_gesture
                             self.last_pos = self.pos
                             self.pos = det_pos
-                            
-                        self.temp_gesture = self.det_gesture
-                        self.prev_time = cur_time
+                            self.temp_gesture = self.det_gesture
+                            self.prev_time = cur_time
+                        elif self.det_gesture != self.temp_gesture:            
+                            self.temp_gesture = self.det_gesture
+                            self.prev_time = cur_time
+
+                    if self.gesture != self.last_gesture:
+                        print("gesture: ", self.gesture, "\nlast gesture: ", self.last_gesture, "\ncurrent mode: ", self.current_mode)
 
                     if self.current_mode == "Mouse" or self.mouse_acc: 
-                        if self.gesture == '5' and temp_pos:
-                            print("temp_pos: " ,temp_pos)
+                        if (self.gesture == '5' or self.gesture == 'left click' or self.gesture == 'right click') and temp_pos:
                             if temp_pos:
                                 self.mouse_move(temp_pos, det_pos)
                         elif self.gesture == '0' and self.last_gesture == '1':
@@ -119,6 +118,9 @@ class Gesture:
                             pyautogui.mouseDown(button="left")
                         elif self.gesture == 'right click':
                             pyautogui.mouseDown(button='right')
+                        # if self.gesture == '5':
+                        #     pyautogui.mouseUp(button="left")
+                        #     pyautogui.mouseUp(button="right")
                     if not (self.last_pos and det_pos and self.last_gesture and self.gesture ):
                         continue  
                     if self.current_mode == 'Keyboard' and self.last_gesture != self.gesture:
@@ -128,7 +130,7 @@ class Gesture:
                             if self.last_gesture == '2':
                                 self.set_mode('Keyboard')
                             elif self.last_gesture == '3':
-                                self.set_mode('Mouse')
+                                self.set_mode("Mouse")
                             elif self.last_gesture == '4':
                                 self.set_mode('PPT')
                             elif self.last_gesture == '5':
@@ -138,6 +140,9 @@ class Gesture:
                     elif self.current_mode == 'PPT':
                         self.ppt_control(self.last_pos, self.pos, self.last_gesture, self.gesture)
                                 
+            self.last_gesture = self.gesture
+            temp_pos = det_pos
+
             # Convert to Tkinter-compatible format
             img = cv2.cvtColor(frm, cv2.COLOR_RGBA2BGR)
             img = Image.fromarray(img)
@@ -235,9 +240,7 @@ class Gesture:
                     kb.send("b")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("c")
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
-                    global mouse_acc
-                    mouse_acc = not mouse_acc               
+             
             elif g0 == "3":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("d")
@@ -300,10 +303,11 @@ class Gesture:
                     print()
     
     def ppt_control(self, p0, p1, g0, g1): # 
-        x_dif = (p1.x - p0.x) * self.cam_width
-        y_dif = (p1.y - p0.y) * self.cam_height
-        # print(g0, g1, x_dif, y_dif)
-        if g1 == "0":
+        x_dif = int(p1.x * self.cam_width - p0.x * self.cam_width)
+        y_dif = int(p1.y * self.cam_height - p0.y * self.cam_height)
+        if g1 == "0" and g0 != '0':
+            print(g0, g1, x_dif, y_dif)
+            # print(g0, g1, p0, p1)
             if g0 == "1":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
                     kb.send("ctrl + L") # start using laser pen
@@ -346,58 +350,28 @@ class Gesture:
                     kb.send("esc") # end PPT
                     print("stop PPT")
                 elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
+                    print('4 : moving up')
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
                     kb.send("shift + f5") # play PPT
                     print("play PPT") 
+                elif y_dif > 0 and abs(x_dif) < abs(y_dif):
+                    print("4 : moving down")
             elif g0 == "5":
                 if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    kb.send("P") # previos slide
+                    kb.send("p") # previos slide
+                    print('previos slide')
                 elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
+                    print("5 : moving up")
                 elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    kb.send("N") # next slide
+                    kb.send("n") # next slide
+                    print("next slide")
                 elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
-                    print()
-            elif g0 == "6":
-                if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
-                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
-            elif g0 == "7":
-                if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
-                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
-                    print()
-            elif g0 == "8":
-                if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
-                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
-            elif g0 == "9":
-                if x_dif < 0 and abs(x_dif) > abs(y_dif): # moving left
-                    print()
-                elif y_dif < 0 and abs(x_dif) < abs(y_dif): # moving up
-                    print()
-                elif x_dif > 0 and abs(x_dif) > abs(y_dif): # moving right
-                    print()
-                elif y_dif > 0 and abs(x_dif) < abs(y_dif): # moving down
-                    print()
-
-        return "PPT"
-
+                    print("5 : moving down")
+    
     def mouse_move(self, p0, p1):
         # print(p0, p1)
         x = int((p1.x - p0.x) * self.screen_width * self.sensitivity)
-        y = int((p1.y - p0.y) * self.screen_height * self.sensitivity) 
+        y = int((p1.y - p0.y) * self.screen_height * self.sensitivity)
         # print("mouse move function is runing.\n(x, y) = ( ", x, ", ", y, ")")
         pyautogui.moveRel(x, y)
         # pyautogui.moveTo(x=int(p1.x * self.screen_width), y=int(p1.y * self.screen_height))
