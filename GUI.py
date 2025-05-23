@@ -42,7 +42,7 @@ class ModernGestureApp:
 
         self.show_camera_var = tk.BooleanVar(value=True)
         self.show_skeleton_var = tk.BooleanVar(value=False)
-        self.show_on_top_var = tk.BooleanVar(value=False)
+        self.show_on_top_var = tk.BooleanVar(value=True)
         self.show_img_var = tk.BooleanVar(value=False)
 
         self.create_widgets()
@@ -180,6 +180,10 @@ class ModernGestureApp:
         
         self.floating_img = None
         self.create_floating_img()
+        self.toggle_show_camera()
+        self.toggle_show_img()
+        self.toggle_show_skeleton()
+        self.toggle_show_on_top()
         
     def start_camera(self):
         self.ges.show_cam(self.show_camera_var.get())

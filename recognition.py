@@ -34,6 +34,8 @@ class Gesture:
         self.det_gesture = None
         # self.test = '0'
         self.sensitivity = 0.7
+        self.mouse_left = False
+        self.mouse_right = False
         
         self.draw_landmark = True
         self.show_camera = False
@@ -109,18 +111,33 @@ class Gesture:
                         print("gesture: ", self.gesture, "\nlast gesture: ", self.last_gesture, "\ncurrent mode: ", self.current_mode)
 
                     if self.current_mode == "Mouse" or self.mouse_acc: 
+                        left_down = False
+                        right_down = False
                         if (self.gesture == '5' or self.gesture == 'left click' or self.gesture == 'right click') and temp_pos:
                             if temp_pos:
                                 self.mouse_move(temp_pos, det_pos)
                         elif self.gesture == '0' and self.last_gesture == '1':
                             self.set_mode("Selection")
-                        elif self.gesture == 'left click':
-                            pyautogui.mouseDown(button="left")
-                        elif self.gesture == 'right click':
-                            pyautogui.mouseDown(button='right')
-                        # if self.gesture == '5':
-                        #     pyautogui.mouseUp(button="left")
-                        #     pyautogui.mouseUp(button="right")
+                        if self.gesture == 'left click':
+                            left_down = True
+                        if self.gesture == 'right click':
+                            right_down = True
+                        if self.gesture == '5':
+                            left_down = False
+                            right_down = False
+                            
+                        if self.mouse_left != left_down:
+                            self.mouse_left = left_down
+                            if self.mouse_left:
+                                pyautogui.mouseDown(button="left")
+                            else:
+                                pyautogui.mouseUp(button="left")
+                        if self.mouse_right != right_down:
+                            self.mouse_right = right_down
+                            if self.mouse_right:
+                                pyautogui.mouseDown(button="right")
+                            else:
+                                pyautogui.mouseUp(button = "right")
                     if not (self.last_pos and det_pos and self.last_gesture and self.gesture ):
                         continue  
                     if self.current_mode == 'Keyboard' and self.last_gesture != self.gesture:
