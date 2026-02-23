@@ -21,20 +21,14 @@ git clone https://github.com/ForeverYoung626/Gesture-control.git
 cd Gesture-control
 ```
 
-### 2. Create and activate a virtual environment
-```
-python -m venv venv
-# On macOS / Linux
-source venv/bin/activate
-# On Windows
-venv\Scripts\activate
-```
-### 3. Install dependencies
-```
-pip install -r requirements.txt
-```
+### 2. Make suer you install the following package:
+* Pillow>=9.0.0
+* mediapipe>=0.10.0
+* opencv-python>=4.5.0
+* keyboard>=0.13.5
+* pyautogui>=0.9.53
+
 ## Usage
-Run the main script:
 ```
 python main.py
 ```
